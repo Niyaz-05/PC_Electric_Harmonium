@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light dark;
+}
+
+html, body, #root { height: 100%; }
+
+body {
+  @apply text-neutral-900 dark:text-neutral-100;
+}
+
+/* Wood-inspired background texture */
+.bg-wood {
+  background: linear-gradient(135deg, #caa472 0%, #b98a5f 30%, #a9784e 60%, #7e5a3a 100%);
+}
