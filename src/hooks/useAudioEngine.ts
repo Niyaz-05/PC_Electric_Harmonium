@@ -114,9 +114,9 @@ export function useAudioEngine(opts: { reedMode: ReedMode, tuning: TuningSystem,
       const vmap = voicesRef.current
       for (const v of vmap.values()) v.updatePressure(pressureRef.current)
     },
-    async startNote(midi: number, velocity = 1) {
+    startNote(midi: number, velocity = 1) {
       const ctx = ensureAudio()
-      await ctx.resume().catch(() => {})
+      void ctx.resume().catch(() => {})
       const existing = voicesRef.current.get(midi)
       if (existing) {
         existing.updatePressure(pressureRef.current)

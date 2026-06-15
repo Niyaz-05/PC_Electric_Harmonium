@@ -3,6 +3,7 @@ import { PressureGauge } from './PressureGauge'
 
 export function Bellows({ engine, auto }: { engine: any, auto: boolean }) {
   const areaRef = useRef<HTMLDivElement>(null)
+  const draggingRef = useRef(false)
   const [pressure, setPressure] = useState(0)
   const [dragging, setDragging] = useState(false)
 
@@ -15,34 +16,41 @@ export function Bellows({ engine, auto }: { engine: any, auto: boolean }) {
 
     const onPointerDown = (e: PointerEvent) => {
       if (!areaRef.current?.contains(e.target as Node)) return
+      draggingRef.current = true
       setDragging(true)
       lastTime = performance.now()
       lastX = e.clientX; lastY = e.clientY
     }
     const onPointerMove = (e: PointerEvent) => {
-      if (!dragging) return
+      if (!draggingRef.current) return
       const now = performance.now()
       const dt = Math.max(1, now - lastTime)
       const dx = e.clientX - lastX
       const dy = e.clientY - lastY
       const speed = Math.sqrt(dx*dx + dy*dy) / dt // px per ms
       lastTime = now; lastX = e.clientX; lastY = e.clientY
-      // Map speed → pressure (0..1) with smoothing
+      // Map speed to pressure (0..1) with smoothing
       p = Math.max(0, Math.min(1, p * 0.9 + speed * 0.5))
       setPressure(p)
       engine.setPressure(p)
     }
-    const onPointerUp = () => { setDragging(false); if (!auto) { p = 0; setPressure(0); engine.setPressure(0) } }
+    const onPointerUp = () => {
+      draggingRef.current = false
+      setDragging(false)
+      if (!auto) { p = 0; setPressure(0); engine.setPressure(0) }
+    }
 
     window.addEventListener('pointerdown', onPointerDown)
     window.addEventListener('pointermove', onPointerMove)
     window.addEventListener('pointerup', onPointerUp)
+    window.addEventListener('pointercancel', onPointerUp)
     return () => {
       window.removeEventListener('pointerdown', onPointerDown)
       window.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('pointerup', onPointerUp)
+      window.removeEventListener('pointercancel', onPointerUp)
     }
-  }, [auto])
+  }, [auto, engine])
 
   return (
     <div ref={areaRef} className="h-64 md:h-full min-h-[220px] rounded-lg overflow-hidden bg-gradient-to-br from-wood-light/80 to-wood-dark/80 relative">

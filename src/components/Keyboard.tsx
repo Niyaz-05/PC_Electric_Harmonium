@@ -1,9 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { motion } from 'framer-motion'
 import { keyToSemitone, codeToLabel } from '../lib/mapping'
 
 export function Keyboard({ engine, octave }: { engine: any, octave: number }) {
   const [pressed, setPressed] = useState(new Set<string>())
+  const pressedRef = useRef(new Set<string>())
+  const activeNotesRef = useRef(new Map<string, number>())
   const baseMidi = 12 * (octave + 1) // C octave base
 
   const keyLayout: string[] = [
@@ -11,25 +13,33 @@ export function Keyboard({ engine, octave }: { engine: any, octave: number }) {
   ]
 
   const down = (code: string, velocity = 1) => {
-    if (pressed.has(code)) return
+    if (pressedRef.current.has(code)) return
     const semi = keyToSemitone[code]
     if (semi === undefined) return
     const midi = baseMidi + semi
+    pressedRef.current.add(code)
+    activeNotesRef.current.set(code, midi)
     engine.startNote(midi, velocity)
-    setPressed(prev => new Set(prev).add(code))
+    setPressed(new Set(pressedRef.current))
   }
 
   const up = (code: string) => {
-    if (!pressed.has(code)) return
-    const semi = keyToSemitone[code]
-    if (semi === undefined) return
-    const midi = baseMidi + semi
+    if (!pressedRef.current.has(code)) return
+    const midi = activeNotesRef.current.get(code)
+    if (midi === undefined) return
     engine.stopNote(midi)
-    setPressed(prev => {
-      const n = new Set(prev)
-      n.delete(code)
-      return n
-    })
+    pressedRef.current.delete(code)
+    activeNotesRef.current.delete(code)
+    setPressed(new Set(pressedRef.current))
+  }
+
+  const releaseAll = () => {
+    for (const midi of activeNotesRef.current.values()) {
+      engine.stopNote(midi)
+    }
+    pressedRef.current.clear()
+    activeNotesRef.current.clear()
+    setPressed(new Set())
   }
 
   useEffect(() => {
@@ -38,13 +48,20 @@ export function Keyboard({ engine, octave }: { engine: any, octave: number }) {
       down(e.code)
     }
     const onKeyUp = (e: KeyboardEvent) => up(e.code)
+    const onVisibilityChange = () => {
+      if (document.hidden) releaseAll()
+    }
     window.addEventListener('keydown', onKeyDown)
     window.addEventListener('keyup', onKeyUp)
+    window.addEventListener('blur', releaseAll)
+    document.addEventListener('visibilitychange', onVisibilityChange)
     return () => {
       window.removeEventListener('keydown', onKeyDown)
       window.removeEventListener('keyup', onKeyUp)
+      window.removeEventListener('blur', releaseAll)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
-  }, [baseMidi])
+  }, [baseMidi, engine])
 
   const Key = ({ code, label }: any) => {
     const black = label.includes('#')
